@@ -1,0 +1,2704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relay World - A Nostr Multiplayer Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #8B5CF6;
+            --secondary-color: #10B981;
+            --background-color: #1F2937;
+            --dark-color: #111827;
+            --light-color: #F3F4F6;
+            --accent-color: #F59E0B;
+            --danger-color: #EF4444;
+            --success-color: #10B981;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Press Start 2P', system-ui, -apple-system, sans-serif;
+            background-color: var(--background-color);
+            color: var(--light-color);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Login Screen */
+        #login-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(17, 24, 39, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+
+        .login-panel {
+            background-color: var(--dark-color);
+            border: 4px solid var(--primary-color);
+            padding: 2rem;
+            border-radius: 8px;
+            max-width: 90%;
+            width: 400px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+            text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+        }
+
+        .login-panel p {
+            margin-bottom: 2rem;
+            font-size: 0.8rem;
+            line-height: 1.5;
+        }
+
+        #login-button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            font-family: inherit;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        #login-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        #login-status {
+            margin-top: 1rem;
+            min-height: 1rem;
+            color: var(--accent-color);
+        }
+
+        .loader {
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-left: 4px solid var(--primary-color);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 1rem auto;
+            display: none;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Game UI */
+        #game-container {
+            position: relative;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+
+        #game-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        /* UI Overlay */
+        #ui-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* HUD Elements */
+        #player-hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(17, 24, 39, 0.7);
+            padding: 10px;
+            border-radius: 4px;
+            max-width: 300px;
+            pointer-events: auto;
+            border: 2px solid var(--primary-color);
+        }
+
+        #player-profile {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        #player-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 2px solid var(--primary-color);
+            background-color: var(--dark-color);
+        }
+
+        #player-name {
+            font-size: 0.8rem;
+            font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
+        }
+
+        #player-stats {
+            font-size: 0.7rem;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: var(--accent-color);
+        }
+
+        /* Relay Selection */
+        #relay-selector {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: rgba(17, 24, 39, 0.7);
+            padding: 10px;
+            border-radius: 4px;
+            pointer-events: auto;
+            border: 2px solid var(--primary-color);
+        }
+
+        #relay-selector h3 {
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+
+        #relay-list {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .relay-item {
+            background-color: var(--dark-color);
+            padding: 5px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .relay-item:hover {
+            background-color: var(--primary-color);
+        }
+
+        .relay-item.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        /* Chat Area */
+        #chat-container {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            width: 300px;
+            pointer-events: auto;
+        }
+
+        #chat-messages {
+            background-color: rgba(17, 24, 39, 0.7);
+            border-radius: 4px 4px 0 0;
+            padding: 10px;
+            height: 150px;
+            overflow-y: auto;
+            border: 2px solid var(--primary-color);
+            border-bottom: none;
+            font-size: 0.7rem;
+        }
+
+        .chat-message {
+            margin-bottom: 8px;
+            word-wrap: break-word;
+        }
+
+        .chat-author {
+            color: var(--accent-color);
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        #chat-input-container {
+            display: flex;
+            border: 2px solid var(--primary-color);
+            border-radius: 0 0 4px 4px;
+            overflow: hidden;
+        }
+
+        #chat-input {
+            flex-grow: 1;
+            padding: 8px;
+            background-color: var(--dark-color);
+            border: none;
+            color: white;
+            font-family: inherit;
+            font-size: 0.7rem;
+        }
+
+        #chat-send {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0 10px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.7rem;
+        }
+
+        /* Leaderboard */
+        #leaderboard {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background-color: rgba(17, 24, 39, 0.7);
+            padding: 10px;
+            border-radius: 4px;
+            width: 250px;
+            pointer-events: auto;
+            border: 2px solid var(--primary-color);
+        }
+
+        #leaderboard h3 {
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+            text-align: center;
+        }
+
+        .leaderboard-entry {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px;
+            margin-bottom: 5px;
+            background-color: var(--dark-color);
+            border-radius: 4px;
+            font-size: 0.7rem;
+        }
+
+        .leaderboard-player {
+            display: flex;
+            align-items: center;
+        }
+
+        .leaderboard-avatar {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 8px;
+            background-size: cover;
+            background-position: center;
+        }
+
+        .leaderboard-name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 120px;
+        }
+
+        .leaderboard-score {
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+
+        /* Popup */
+        #player-popup {
+            position: absolute;
+            display: none;
+            background-color: rgba(17, 24, 39, 0.9);
+            border: 2px solid var(--primary-color);
+            border-radius: 4px;
+            padding: 15px;
+            width: 300px;
+            pointer-events: auto;
+            z-index: 20;
+        }
+
+        #popup-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        #popup-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 2px solid var(--primary-color);
+        }
+
+        #popup-name {
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        #popup-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .popup-action {
+            background-color: var(--dark-color);
+            color: white;
+            border: 1px solid var(--primary-color);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .popup-action:hover {
+            background-color: var(--primary-color);
+        }
+
+        #popup-chat-container {
+            display: none;
+        }
+
+        #popup-chat-messages {
+            background-color: var(--dark-color);
+            border-radius: 4px;
+            padding: 10px;
+            height: 100px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            font-size: 0.7rem;
+        }
+
+        #popup-chat-input-container {
+            display: flex;
+        }
+
+        #popup-chat-input {
+            flex-grow: 1;
+            padding: 5px;
+            background-color: var(--dark-color);
+            border: 1px solid var(--primary-color);
+            border-radius: 4px 0 0 4px;
+            color: white;
+            font-family: inherit;
+            font-size: 0.7rem;
+        }
+
+        #popup-chat-send {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0 10px;
+            border-radius: 0 4px 4px 0;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.7rem;
+        }
+
+        /* Trade Interface */
+        #trade-interface {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(17, 24, 39, 0.95);
+            border: 2px solid var(--primary-color);
+            border-radius: 4px;
+            padding: 20px;
+            width: 400px;
+            max-width: 90%;
+            pointer-events: auto;
+            z-index: 30;
+            display: none;
+        }
+
+        #trade-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        #trade-title {
+            font-size: 1rem;
+            color: var(--primary-color);
+        }
+
+        #trade-close {
+            background: none;
+            border: none;
+            color: var(--light-color);
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        .trade-section {
+            margin-bottom: 15px;
+        }
+
+        .trade-section h4 {
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+            color: var(--accent-color);
+        }
+
+        .trade-items {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .trade-item {
+            background-color: var(--dark-color);
+            border: 1px solid var(--primary-color);
+            border-radius: 4px;
+            padding: 5px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .trade-item:hover {
+            background-color: rgba(139, 92, 246, 0.2);
+        }
+
+        .trade-item.selected {
+            background-color: rgba(139, 92, 246, 0.5);
+            border-color: var(--accent-color);
+        }
+
+        .trade-item-icon {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+
+        .trade-item-name {
+            font-size: 0.6rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .trade-footer {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .trade-button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .trade-button:hover {
+            background-color: #7C3AED;
+        }
+
+        .trade-button.cancel {
+            background-color: var(--dark-color);
+            border: 1px solid var(--danger-color);
+            color: var(--danger-color);
+        }
+
+        /* Zap Interface */
+        #zap-interface {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(17, 24, 39, 0.95);
+            border: 2px solid var(--primary-color);
+            border-radius: 4px;
+            padding: 20px;
+            width: 300px;
+            pointer-events: auto;
+            z-index: 30;
+            display: none;
+        }
+
+        #zap-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        #zap-title {
+            font-size: 1rem;
+            color: var(--primary-color);
+        }
+
+        #zap-close {
+            background: none;
+            border: none;
+            color: var(--light-color);
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        #zap-content {
+            margin-bottom: 15px;
+        }
+
+        #zap-amount {
+            width: 100%;
+            padding: 8px;
+            background-color: var(--dark-color);
+            border: 1px solid var(--primary-color);
+            border-radius: 4px;
+            color: white;
+            font-family: inherit;
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+        }
+
+        #zap-message {
+            width: 100%;
+            padding: 8px;
+            background-color: var(--dark-color);
+            border: 1px solid var(--primary-color);
+            border-radius: 4px;
+            color: white;
+            font-family: inherit;
+            font-size: 0.8rem;
+            resize: none;
+            height: 60px;
+        }
+
+        #zap-button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            font-family: inherit;
+            width: 100%;
+        }
+
+        /* Toast Notifications */
+        #toast-container {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            z-index: 40;
+            pointer-events: none;
+        }
+
+        .toast {
+            background-color: rgba(17, 24, 39, 0.9);
+            border-left: 4px solid var(--primary-color);
+            border-radius: 4px;
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            font-size: 0.7rem;
+            animation: fadeIn 0.3s, fadeOut 0.3s 2.7s;
+            opacity: 0;
+            animation-fill-mode: forwards;
+        }
+
+        .toast.success {
+            border-left-color: var(--success-color);
+        }
+
+        .toast.error {
+            border-left-color: var(--danger-color);
+        }
+
+        .toast.warning {
+            border-left-color: var(--accent-color);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(-20px); }
+        }
+
+        /* Quest Notification */
+        #quest-notification {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(17, 24, 39, 0.9);
+            border: 2px solid var(--accent-color);
+            border-radius: 4px;
+            padding: 15px;
+            width: 400px;
+            max-width: 90%;
+            pointer-events: auto;
+            z-index: 25;
+            display: none;
+        }
+
+        #quest-title {
+            font-size: 0.9rem;
+            color: var(--accent-color);
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        #quest-description {
+            font-size: 0.7rem;
+            margin-bottom: 15px;
+            line-height: 1.4;
+        }
+
+        #quest-actions {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .quest-button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .quest-button.decline {
+            background-color: var(--dark-color);
+            border: 1px solid var(--light-color);
+        }
+
+        /* Audio spaces */
+        .audio-space {
+            position: absolute;
+            width: 300px;
+            height: 400px;
+            background-color: rgba(17, 24, 39, 0.9);
+            border: 2px solid var(--primary-color);
+            border-radius: 4px;
+            z-index: 20;
+            display: none;
+            pointer-events: auto;
+            overflow: hidden;
+        }
+
+        .audio-space-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background-color: var(--dark-color);
+            border-bottom: 1px solid var(--primary-color);
+        }
+
+        .audio-space-title {
+            font-size: 0.8rem;
+            color: var(--primary-color);
+        }
+
+        .audio-space-close {
+            background: none;
+            border: none;
+            color: var(--light-color);
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        .audio-space-iframe {
+            width: 100%;
+            height: calc(100% - 40px);
+            border: none;
+        }
+
+        /* Social Audio Spaces */
+        #corny-chat {
+            left: 10px;
+            top: 200px;
+        }
+
+        #hive-talk {
+            right: 10px;
+            top: 200px;
+        }
+
+        /* Loading Screen */
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--background-color);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1001;
+        }
+
+        #loading-text {
+            font-size: 1.2rem;
+            margin-top: 20px;
+            color: var(--primary-color);
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(139, 92, 246, 0.3);
+            border-radius: 50%;
+            border-top: 5px solid var(--primary-color);
+            animation: spin 1s linear infinite;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            #chat-container, #leaderboard {
+                width: 250px;
+            }
+            
+            #player-hud, #relay-selector, #chat-container, #leaderboard {
+                font-size: 0.7rem;
+            }
+            
+            #trade-interface {
+                width: 90%;
+            }
+            
+            .trade-items {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            
+            #quest-notification {
+                width: 90%;
+            }
+            
+            .audio-space {
+                width: 250px;
+                height: 350px;
+            }
+        }
+
+        /* Inventory */
+        #inventory-button {
+            position: absolute;
+            bottom: 170px;
+            left: 10px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            font-family: inherit;
+            pointer-events: auto;
+        }
+
+        #inventory {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(17, 24, 39, 0.95);
+            border: 2px solid var(--primary-color);
+            border-radius: 4px;
+            padding: 20px;
+            width: 400px;
+            max-width: 90%;
+            max-height: 80%;
+            overflow-y: auto;
+            pointer-events: auto;
+            z-index: 30;
+            display: none;
+        }
+
+        #inventory-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        #inventory-title {
+            font-size: 1rem;
+            color: var(--primary-color);
+        }
+
+        #inventory-close {
+            background: none;
+            border: none;
+            color: var(--light-color);
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        #inventory-content {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+
+        .inventory-item {
+            background-color: var(--dark-color);
+            border: 1px solid var(--primary-color);
+            border-radius: 4px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .inventory-item:hover {
+            background-color: rgba(139, 92, 246, 0.2);
+        }
+
+        .inventory-item-icon {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+
+        .inventory-item-name {
+            font-size: 0.6rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .inventory-item-rarity {
+            font-size: 0.5rem;
+            margin-top: 5px;
+        }
+
+        .rarity-common {
+            color: #9CA3AF;
+        }
+
+        .rarity-rare {
+            color: #3B82F6;
+        }
+
+        .rarity-super-rare {
+            color: #8B5CF6;
+        }
+
+        .rarity-legendary {
+            color: #F59E0B;
+        }
+
+        /* Bitcoin Connect Modal (simplified) */
+        .bc-button {
+            background-color: var(--accent-color);
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        #bitcoin-connect-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1002;
+        }
+
+        .bc-modal-content {
+            background-color: var(--dark-color);
+            border: 2px solid var(--accent-color);
+            border-radius: 4px;
+            padding: 20px;
+            width: 400px;
+            max-width: 90%;
+        }
+
+        .bc-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .bc-modal-title {
+            font-size: 1rem;
+            color: var(--accent-color);
+        }
+
+        .bc-modal-close {
+            background: none;
+            border: none;
+            color: var(--light-color);
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        .bc-connector-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .bc-connector {
+            background-color: var(--background-color);
+            border: 1px solid var(--primary-color);
+            border-radius: 4px;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .bc-connector:hover {
+            background-color: rgba(139, 92, 246, 0.2);
+        }
+
+        .bc-connector-icon {
+            width: 30px;
+            height: 30px;
+            margin-right: 10px;
+            object-fit: contain;
+        }
+
+        .bc-connector-name {
+            font-size: 0.8rem;
+        }
+
+        /* Game Debug Console */
+        #debug-console {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            font-family: monospace;
+            font-size: 0.8rem;
+            z-index: 1000;
+            display: none;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .debug-message {
+            color: #eee;
+            margin-bottom: 5px;
+        }
+
+        .debug-error {
+            color: #f87171;
+        }
+
+        .debug-success {
+            color: #34d399;
+        }
+
+        .debug-warning {
+            color: #fbbf24;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+        <div class="loading-spinner"></div>
+        <div id="loading-text">Loading game...</div>
+    </div>
+
+    <!-- Login Screen -->
+    <div id="login-screen">
+        <div class="login-panel">
+            <h1>Relay World</h1>
+            <p>A Nostr-powered multiplayer experience</p>
+            <button id="login-button">Connect with Nostr</button>
+            <div class="loader" id="login-loader"></div>
+            <div id="login-status"></div>
+        </div>
+    </div>
+
+    <!-- Game Container -->
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+    </div>
+
+    <!-- UI Overlay -->
+    <div id="ui-container">
+        <!-- Player HUD -->
+        <div id="player-hud">
+            <div id="player-profile">
+                <img id="player-avatar" src="https://via.placeholder.com/40" alt="Avatar">
+                <div id="player-name">Player</div>
+            </div>
+            <div id="player-stats">
+                <div class="stat-row">
+                    <span class="stat-label">Score:</span>
+                    <span id="player-score">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Level:</span>
+                    <span id="player-level">1</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Items:</span>
+                    <span id="player-items">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Relay Selector -->
+        <div id="relay-selector">
+            <h3>Surfing Relays</h3>
+            <div id="relay-list">
+                <!-- Relays will be added here dynamically -->
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div id="chat-container">
+            <div id="chat-messages">
+                <!-- Chat messages will be added here dynamically -->
+            </div>
+            <div id="chat-input-container">
+                <input type="text" id="chat-input" placeholder="Type a message...">
+                <button id="chat-send">Send</button>
+            </div>
+        </div>
+
+        <!-- Inventory Button -->
+        <button id="inventory-button">Inventory</button>
+
+        <!-- Leaderboard -->
+        <div id="leaderboard">
+            <h3>Leaderboard</h3>
+            <div id="leaderboard-entries">
+                <!-- Leaderboard entries will be added here dynamically -->
+            </div>
+        </div>
+
+        <!-- Player Popup -->
+        <div id="player-popup">
+            <div id="popup-header">
+                <img id="popup-avatar" src="https://via.placeholder.com/40" alt="Avatar">
+                <div id="popup-name">Player</div>
+            </div>
+            <div id="popup-actions">
+                <button class="popup-action" id="popup-chat">Chat</button>
+                <button class="popup-action" id="popup-trade">Trade</button>
+                <button class="popup-action" id="popup-follow">Follow</button>
+                <button class="popup-action" id="popup-zap">Zap</button>
+            </div>
+            <div id="popup-chat-container">
+                <div id="popup-chat-messages">
+                    <!-- Direct chat messages will be added here dynamically -->
+                </div>
+                <div id="popup-chat-input-container">
+                    <input type="text" id="popup-chat-input" placeholder="Type a message...">
+                    <button id="popup-chat-send">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trade Interface -->
+        <div id="trade-interface">
+            <div id="trade-header">
+                <div id="trade-title">Trade with Player</div>
+                <button id="trade-close">×</button>
+            </div>
+            <div class="trade-section">
+                <h4>Your Offer</h4>
+                <div class="trade-items" id="your-trade-items">
+                    <!-- Your items will be added here dynamically -->
+                </div>
+            </div>
+            <div class="trade-section">
+                <h4>Their Offer</h4>
+                <div class="trade-items" id="their-trade-items">
+                    <!-- Their items will be added here dynamically -->
+                </div>
+            </div>
+            <div class="trade-footer">
+                <button class="trade-button cancel" id="trade-cancel">Cancel</button>
+                <button class="trade-button" id="trade-offer">Make Offer</button>
+            </div>
+        </div>
+
+        <!-- Zap Interface -->
+        <div id="zap-interface">
+            <div id="zap-header">
+                <div id="zap-title">Zap Player</div>
+                <button id="zap-close">×</button>
+            </div>
+            <div id="zap-content">
+                <input type="number" id="zap-amount" placeholder="Amount (sats)" min="1" value="21">
+                <textarea id="zap-message" placeholder="Optional message"></textarea>
+            </div>
+            <button id="zap-button">Send Zap</button>
+        </div>
+
+        <!-- Inventory -->
+        <div id="inventory">
+            <div id="inventory-header">
+                <div id="inventory-title">Inventory</div>
+                <button id="inventory-close">×</button>
+            </div>
+            <div id="inventory-content">
+                <!-- Inventory items will be added here dynamically -->
+            </div>
+        </div>
+
+        <!-- Quest Notification -->
+        <div id="quest-notification">
+            <div id="quest-title">New Quest Available!</div>
+            <div id="quest-description">
+                <!-- Quest description will be added here dynamically -->
+            </div>
+            <div id="quest-actions">
+                <button class="quest-button" id="quest-accept">Accept</button>
+                <button class="quest-button decline" id="quest-decline">Decline</button>
+            </div>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div id="toast-container">
+            <!-- Toasts will be added here dynamically -->
+        </div>
+
+        <!-- Audio Spaces -->
+        <div class="audio-space" id="corny-chat">
+            <div class="audio-space-header">
+                <div class="audio-space-title">Corny Chat</div>
+                <button class="audio-space-close" id="corny-chat-close">×</button>
+            </div>
+            <iframe class="audio-space-iframe" src="https://cornychat.com/relayworld"></iframe>
+        </div>
+
+        <div class="audio-space" id="hive-talk">
+            <div class="audio-space-header">
+                <div class="audio-space-title">Hive Talk</div>
+                <button class="audio-space-close" id="hive-talk-close">×</button>
+            </div>
+            <iframe class="audio-space-iframe" src="https://hivetalk.org/join/RelayWorld"></iframe>
+        </div>
+    </div>
+
+    <!-- Bitcoin Connect Modal (Simplified) -->
+    <div id="bitcoin-connect-modal">
+        <div class="bc-modal-content">
+            <div class="bc-modal-header">
+                <div class="bc-modal-title">Connect Lightning Wallet</div>
+                <button class="bc-modal-close" id="bc-modal-close">×</button>
+            </div>
+            <div class="bc-connector-list">
+                <div class="bc-connector" data-connector="alby">
+                    <img class="bc-connector-icon" src="https://getalby.com/assets/alby-logo.svg" alt="Alby">
+                    <div class="bc-connector-name">Alby Browser Extension</div>
+                </div>
+                <div class="bc-connector" data-connector="lnbits">
+                    <img class="bc-connector-icon" src="https://lnbits.com/assets/images/logo/logo.svg" alt="LNbits">
+                    <div class="bc-connector-name">LNbits</div>
+                </div>
+                <div class="bc-connector" data-connector="nwc">
+                    <img class="bc-connector-icon" src="https://nostr.com/img/nostr-logo.svg" alt="NWC">
+                    <div class="bc-connector-name">Nostr Wallet Connect</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Debug Console -->
+    <div id="debug-console"></div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/nostr-tools/lib/nostr.bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@getalby/bitcoin-connect/dist/index.browser.js"></script>
+    
+    <script>
+        // ===============================
+        // Game Configuration
+        // ===============================
+        const CONFIG = {
+            // Game settings
+            WORLD_SIZE: 2000,
+            PLAYER_SPEED: 150,
+            CAMERA_FOLLOW_SPEED: 0.1,
+            
+            // Game relays (environment variables in a real implementation)
+            GAME_RELAY: "wss://relay.damus.io",
+            
+            // Default surfing relays
+            DEFAULT_RELAYS: [
+                "wss://relay.damus.io",
+                "wss://relay.nostr.band",
+                "wss://nos.lol",
+                "wss://nostr.wine"
+            ],
+            
+            // Event kinds
+            EVENT_KINDS: {
+                PLAYER_POSITION: 30001,  // Custom kind for player position
+                GLOBAL_CHAT: 30002,      // Custom kind for game chat
+                DIRECT_CHAT: 4,          // NIP-04 encrypted direct messages
+                GAME_ACTION: 30003,      // Custom kind for game actions (trades, etc.)
+                GAME_ITEM: 30004,        // Custom kind for game items
+                GAME_QUEST: 30005,       // Custom kind for game quests
+                GAME_SCORE: 30006,       // Custom kind for game score updates
+                METADATA: 0,             // Profile metadata
+                TEXT_NOTE: 1,            // Regular text notes for surfing
+                CONTACTS: 3              // Contact lists for following
+            },
+            
+            // Game constants
+            QUEST_INTERVAL: 5 * 60 * 1000, // 5 minutes between quests
+            LEADERBOARD_UPDATE_INTERVAL: 10 * 1000, // 10 seconds
+            
+            // Rarity levels and colors
+            RARITY: {
+                COMMON: { name: "Common", color: "#9CA3AF", chance: 0.7 },
+                RARE: { name: "Rare", color: "#3B82F6", chance: 0.2 },
+                SUPER_RARE: { name: "Super Rare", color: "#8B5CF6", chance: 0.08 },
+                LEGENDARY: { name: "Legendary", color: "#F59E0B", chance: 0.02 }
+            },
+            
+            // Game items (simplified example)
+            ITEMS: [
+                { id: "sword", name: "Sword", emoji: "⚔️", value: 100 },
+                { id: "shield", name: "Shield", emoji: "🛡️", value: 80 },
+                { id: "potion", name: "Potion", emoji: "🧪", value: 30 },
+                { id: "gem", name: "Gem", emoji: "💎", value: 200 },
+                { id: "gold", name: "Gold", emoji: "💰", value: 50 },
+                { id: "key", name: "Key", emoji: "🔑", value: 75 },
+                { id: "scroll", name: "Scroll", emoji: "📜", value: 90 },
+                { id: "wand", name: "Wand", emoji: "🪄", value: 120 },
+                { id: "ring", name: "Ring", emoji: "💍", value: 150 },
+                { id: "crown", name: "Crown", emoji: "👑", value: 500 },
+                { id: "boot", name: "Boots", emoji: "👢", value: 60 },
+                { id: "helmet", name: "Helmet", emoji: "🪖", value: 70 }
+            ],
+            
+            // Social spaces coordinates
+            SOCIAL_SPACES: {
+                CORNY_CHAT: { x: 300, y: 300, radius: 50 },
+                HIVE_TALK: { x: 1700, y: 1700, radius: 50 }
+            },
+            
+            // Debug mode
+            DEBUG: true
+        };
+
+        // ===============================
+        // Game State
+        // ===============================
+        const game = {
+            running: false,
+            canvas: null,
+            ctx: null,
+            lastFrameTime: 0,
+            keys: {
+                up: false,
+                down: false,
+                left: false,
+                right: false
+            },
+            
+            // Player state
+            player: {
+                pubkey: null,
+                profile: null,
+                x: CONFIG.WORLD_SIZE / 2,
+                y: CONFIG.WORLD_SIZE / 2,
+                score: 0,
+                level: 1,
+                inventory: [],
+                following: new Set(),
+                dx: 0,
+                dy: 0
+            },
+            
+            // Camera
+            camera: {
+                x: 0,
+                y: 0,
+                width: 0,
+                height: 0
+            },
+            
+            // Game objects
+            players: new Map(), // Map of pubkey -> player object
+            items: new Map(),   // Map of item id -> item object
+            
+            // Relay connections
+            gameRelay: null,
+            surfingRelays: new Map(), // Map of relay url -> relay connection
+            activeRelay: null,
+            
+            // Game state
+            currentQuest: null,
+            leaderboard: [],
+            globalChat: [],
+            directChats: new Map(), // Map of pubkey -> array of messages
+            tradeOffers: new Map(), // Map of trade id -> trade object
+            
+            // UI state
+            selectedPlayer: null,
+            activeTrade: null,
+            inventoryOpen: false,
+            
+            // Bitcoin Connect
+            webln: null
+        };
+
+        // ===============================
+        // Debugging
+        // ===============================
+        const debug = {
+            log: function(message) {
+                if (CONFIG.DEBUG) {
+                    console.log(`[GAME] ${message}`);
+                    this.addToConsole(message);
+                }
+            },
+            
+            error: function(message) {
+                console.error(`[GAME ERROR] ${message}`);
+                this.addToConsole(message, 'error');
+            },
+            
+            warn: function(message) {
+                console.warn(`[GAME WARNING] ${message}`);
+                this.addToConsole(message, 'warning');
+            },
+            
+            success: function(message) {
+                if (CONFIG.DEBUG) {
+                    console.log(`[GAME SUCCESS] ${message}`);
+                    this.addToConsole(message, 'success');
+                }
+            },
+            
+            addToConsole: function(message, type = '') {
+                const console = document.getElementById('debug-console');
+                const div = document.createElement('div');
+                div.className = `debug-message${type ? ' debug-' + type : ''}`;
+                div.textContent = message;
+                console.appendChild(div);
+                console.scrollTop = console.scrollHeight;
+            },
+            
+            showConsole: function() {
+                document.getElementById('debug-console').style.display = 'block';
+            },
+            
+            hideConsole: function() {
+                document.getElementById('debug-console').style.display = 'none';
+            },
+            
+            toggleConsole: function() {
+                const console = document.getElementById('debug-console');
+                console.style.display = console.style.display === 'none' ? 'block' : 'none';
+            }
+        };
+
+        // ===============================
+        // Nostr Utilities
+        // ===============================
+        const nostrClient = {
+            // Check if a NIP-07 compatible extension is available
+            isExtensionAvailable: async function() {
+                return typeof window.nostr !== 'undefined';
+            },
+            
+            // Get public key from extension
+            getPublicKey: async function() {
+                try {
+                    return await window.nostr.getPublicKey();
+                } catch (error) {
+                    debug.error(`Failed to get public key: ${error.message}`);
+                    throw error;
+                }
+            },
+            
+            // Sign an event with extension
+            signEvent: async function(event) {
+                try {
+                    return await window.nostr.signEvent(event);
+                } catch (error) {
+                    debug.error(`Failed to sign event: ${error.message}`);
+                    throw error;
+                }
+            },
+            
+            // Connect to a relay
+            connectRelay: async function(url) {
+                try {
+                    const relay = window.NostrTools.relayInit(url);
+                    await relay.connect();
+                    debug.success(`Connected to relay: ${url}`);
+                    return relay;
+                } catch (error) {
+                    debug.error(`Failed to connect to relay ${url}: ${error.message}`);
+                    throw error;
+                }
+            },
+            
+            // Disconnect from a relay
+            disconnectRelay: async function(relay) {
+                try {
+                    await relay.close();
+                    debug.log(`Disconnected from relay`);
+                } catch (error) {
+                    debug.error(`Failed to disconnect from relay: ${error.message}`);
+                }
+            },
+            
+            // Publish an event to a relay
+            publishEvent: async function(relay, event) {
+                try {
+                    const signedEvent = await this.signEvent(event);
+                    await relay.publish(signedEvent);
+                    debug.success(`Published event: ${event.kind}`);
+                    return signedEvent;
+                } catch (error) {
+                    debug.error(`Failed to publish event: ${error.message}`);
+                    throw error;
+                }
+            },
+            
+            // Subscribe to events from a relay
+            subscribeToEvents: function(relay, filters, onEvent, onEOSE) {
+                try {
+                    const sub = relay.sub(filters);
+                    sub.on('event', onEvent);
+                    if (onEOSE) {
+                        sub.on('eose', onEOSE);
+                    }
+                    return sub;
+                } catch (error) {
+                    debug.error(`Failed to subscribe to events: ${error.message}`);
+                    throw error;
+                }
+            },
+            
+            // Encrypt a message using NIP-04
+            encryptMessage: async function(recipientPubkey, message) {
+                try {
+                    return await window.nostr.nip04.encrypt(recipientPubkey, message);
+                } catch (error) {
+                    debug.error(`Failed to encrypt message: ${error.message}`);
+                    throw error;
+                }
+            },
+            
+            // Decrypt a message using NIP-04
+            decryptMessage: async function(senderPubkey, encryptedMessage) {
+                try {
+                    return await window.nostr.nip04.decrypt(senderPubkey, encryptedMessage);
+                } catch (error) {
+                    debug.error(`Failed to decrypt message: ${error.message}`);
+                    throw error;
+                }
+            },
+            
+            // Create a player position event
+            createPositionEvent: function(x, y) {
+                return {
+                    kind: CONFIG.EVENT_KINDS.PLAYER_POSITION,
+                    created_at: Math.floor(Date.now() / 1000),
+                    tags: [],
+                    content: JSON.stringify({ x, y })
+                };
+            },
+            
+            // Create a chat message event
+            createChatEvent: function(message, isGlobal = true, recipientPubkey = null) {
+                if (isGlobal) {
+                    return {
+                        kind: CONFIG.EVENT_KINDS.GLOBAL_CHAT,
+                        created_at: Math.floor(Date.now() / 1000),
+                        tags: [],
+                        content: message
+                    };
+                } else {
+                    return {
+                        kind: CONFIG.EVENT_KINDS.DIRECT_CHAT,
+                        created_at: Math.floor(Date.now() / 1000),
+                        tags: [['p', recipientPubkey]],
+                        content: message // This will be encrypted before sending
+                    };
+                }
+            },
+            
+            // Create a game action event (for trades, etc.)
+            createGameActionEvent: function(action, data, recipientPubkey = null) {
+                const event = {
+                    kind: CONFIG.EVENT_KINDS.GAME_ACTION,
+                    created_at: Math.floor(Date.now() / 1000),
+                    tags: [['action', action]],
+                    content: JSON.stringify(data)
+                };
+                
+                if (recipientPubkey) {
+                    event.tags.push(['p', recipientPubkey]);
+                }
+                
+                return event;
+            },
+            
+            // Create a game score update event
+            createScoreEvent: function(score, level) {
+                return {
+                    kind: CONFIG.EVENT_KINDS.GAME_SCORE,
+                    created_at: Math.floor(Date.now() / 1000),
+                    tags: [],
+                    content: JSON.stringify({ score, level })
+                };
+            },
+            
+            // Parse metadata from a NIP-01 metadata event
+            parseMetadata: function(event) {
+                try {
+                    return JSON.parse(event.content);
+                } catch (error) {
+                    debug.error(`Failed to parse metadata: ${error.message}`);
+                    return null;
+                }
+            },
+            
+            // Extract pubkeys from a NIP-02 contacts event
+            parseContacts: function(event) {
+                const pubkeys = new Set();
+                
+                for (const tag of event.tags) {
+                    if (tag[0] === 'p' && tag[1]) {
+                        pubkeys.add(tag[1]);
+                    }
+                }
+                
+                return pubkeys;
+            }
+        };
+
+        // ===============================
+        // Game Initialization
+        // ===============================
+        async function initGame() {
+            debug.log("Initializing game...");
+            
+            // Initialize canvas
+            game.canvas = document.getElementById('game-canvas');
+            game.ctx = game.canvas.getContext('2d');
+            
+            // Resize canvas to fill window
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // Setup input handlers
+            setupInputHandlers();
+            
+            // Initialize UI
+            initUI();
+            
+            // Connect to game relay
+            try {
+                game.gameRelay = await nostrClient.connectRelay(CONFIG.GAME_RELAY);
+                debug.success("Connected to game relay");
+            } catch (error) {
+                showToast("Failed to connect to game relay", "error");
+                return;
+            }
+            
+            // Connect to default surfing relays
+            await connectToSurfingRelays(CONFIG.DEFAULT_RELAYS);
+            
+            // Set active relay to the first one
+            game.activeRelay = CONFIG.DEFAULT_RELAYS[0];
+            
+            // Subscribe to game events
+            subscribeToGameEvents();
+            
+            // Start game loop
+            game.running = true;
+            requestAnimationFrame(gameLoop);
+            
+            // Generate some initial items in the world
+            generateWorldItems();
+            
+            // Schedule quests
+            scheduleNextQuest();
+            
+            // Start leaderboard updates
+            setInterval(updateLeaderboard, CONFIG.LEADERBOARD_UPDATE_INTERVAL);
+            
+            // Hide loading screen
+            document.getElementById('loading-screen').style.display = 'none';
+            
+            debug.success("Game initialized successfully");
+        }
+
+        // Resize canvas to fill window
+        function resizeCanvas() {
+            game.canvas.width = window.innerWidth;
+            game.canvas.height = window.innerHeight;
+            game.camera.width = window.innerWidth;
+            game.camera.height = window.innerHeight;
+        }
+
+        // Setup input handlers (keyboard, mouse)
+        function setupInputHandlers() {
+            // Keyboard input
+            window.addEventListener('keydown', (e) => {
+                switch (e.key) {
+                    case 'ArrowUp':
+                    case 'w':
+                    case 'W':
+                        game.keys.up = true;
+                        break;
+                    case 'ArrowDown':
+                    case 's':
+                    case 'S':
+                        game.keys.down = true;
+                        break;
+                    case 'ArrowLeft':
+                    case 'a':
+                    case 'A':
+                        game.keys.left = true;
+                        break;
+                    case 'ArrowRight':
+                    case 'd':
+                    case 'D':
+                        game.keys.right = true;
+                        break;
+                    case '`':
+                        debug.toggleConsole();
+                        break;
+                    case 'i':
+                    case 'I':
+                        toggleInventory();
+                        break;
+                    case 'Enter':
+                        if (document.activeElement !== document.getElementById('chat-input') &&
+                            document.activeElement !== document.getElementById('popup-chat-input')) {
+                            document.getElementById('chat-input').focus();
+                        }
+                        break;
+                }
+            });
+            
+            window.addEventListener('keyup', (e) => {
+                switch (e.key) {
+                    case 'ArrowUp':
+                    case 'w':
+                    case 'W':
+                        game.keys.up = false;
+                        break;
+                    case 'ArrowDown':
+                    case 's':
+                    case 'S':
+                        game.keys.down = false;
+                        break;
+                    case 'ArrowLeft':
+                    case 'a':
+                    case 'A':
+                        game.keys.left = false;
+                        break;
+                    case 'ArrowRight':
+                    case 'd':
+                    case 'D':
+                        game.keys.right = false;
+                        break;
+                }
+            });
+            
+            // Mouse input for player interactions
+            game.canvas.addEventListener('click', handleCanvasClick);
+            
+            // Chat input handlers
+            document.getElementById('chat-send').addEventListener('click', sendChatMessage);
+            document.getElementById('chat-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    sendChatMessage();
+                }
+            });
+            
+            // Popup chat handlers
+            document.getElementById('popup-chat-send').addEventListener('click', sendDirectMessage);
+            document.getElementById('popup-chat-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    sendDirectMessage();
+                }
+            });
+            
+            // Popup action handlers
+            document.getElementById('popup-chat').addEventListener('click', togglePopupChat);
+            document.getElementById('popup-trade').addEventListener('click', initiateTrade);
+            document.getElementById('popup-follow').addEventListener('click', followPlayer);
+            document.getElementById('popup-zap').addEventListener('click', initiateZap);
+            
+            // Trade interface handlers
+            document.getElementById('trade-close').addEventListener('click', closeTrade);
+            document.getElementById('trade-cancel').addEventListener('click', cancelTrade);
+            document.getElementById('trade-offer').addEventListener('click', sendTradeOffer);
+            
+            // Zap interface handlers
+            document.getElementById('zap-close').addEventListener('click', closeZap);
+            document.getElementById('zap-button').addEventListener('click', sendZap);
+            
+            // Inventory handlers
+            document.getElementById('inventory-button').addEventListener('click', toggleInventory);
+            document.getElementById('inventory-close').addEventListener('click', toggleInventory);
+            
+            // Quest notification handlers
+            document.getElementById('quest-accept').addEventListener('click', acceptQuest);
+            document.getElementById('quest-decline').addEventListener('click', declineQuest);
+            
+            // Audio space handlers
+            document.getElementById('corny-chat-close').addEventListener('click', () => {
+                document.getElementById('corny-chat').style.display = 'none';
+            });
+            document.getElementById('hive-talk-close').addEventListener('click', () => {
+                document.getElementById('hive-talk').style.display = 'none';
+            });
+            
+            // Bitcoin Connect handlers
+            document.getElementById('bc-modal-close').addEventListener('click', () => {
+                document.getElementById('bitcoin-connect-modal').style.display = 'none';
+            });
+            
+            document.querySelectorAll('.bc-connector').forEach(connector => {
+                connector.addEventListener('click', async () => {
+                    const connectorType = connector.dataset.connector;
+                    try {
+                        // In a real implementation, this would use the Bitcoin Connect library
+                        showToast(`Connected to ${connectorType}`, "success");
+                        document.getElementById('bitcoin-connect-modal').style.display = 'none';
+                        
+                        // Simulate setting up webln
+                        game.webln = {
+                            sendPayment: async (invoice) => {
+                                return { preimage: "simulated-preimage" };
+                            }
+                        };
+                    } catch (error) {
+                        showToast(`Failed to connect: ${error.message}`, "error");
+                    }
+                });
+            });
+        }
+
+        // Initialize UI components
+        function initUI() {
+            // Populate relay list
+            updateRelayList();
+            
+            // Set up relay selector
+            document.getElementById('relay-list').addEventListener('click', (e) => {
+                if (e.target.classList.contains('relay-item')) {
+                    switchActiveRelay(e.target.dataset.url);
+                }
+            });
+        }
+
+        // Update the list of available relays
+        function updateRelayList() {
+            const relayList = document.getElementById('relay-list');
+            relayList.innerHTML = '';
+            
+            CONFIG.DEFAULT_RELAYS.forEach(url => {
+                const relayItem = document.createElement('div');
+                relayItem.className = 'relay-item';
+                if (url === game.activeRelay) {
+                    relayItem.classList.add('active');
+                }
+                relayItem.textContent = url.replace('wss://', '');
+                relayItem.dataset.url = url;
+                relayList.appendChild(relayItem);
+            });
+        }
+
+        // Connect to the specified surfing relays
+        async function connectToSurfingRelays(relays) {
+            for (const url of relays) {
+                try {
+                    if (!game.surfingRelays.has(url)) {
+                        const relay = await nostrClient.connectRelay(url);
+                        game.surfingRelays.set(url, relay);
+                    }
+                } catch (error) {
+                    debug.error(`Failed to connect to relay ${url}: ${error.message}`);
+                }
+            }
+        }
+
+        // Switch the active relay
+        function switchActiveRelay(url) {
+            if (game.surfingRelays.has(url)) {
+                game.activeRelay = url;
+                
+                // Update UI
+                document.querySelectorAll('.relay-item').forEach(item => {
+                    item.classList.toggle('active', item.dataset.url === url);
+                });
+                
+                // Fetch data from the new relay
+                fetchDataFromActiveRelay();
+                
+                showToast(`Switched to relay: ${url.replace('wss://', '')}`, "success");
+            } else {
+                showToast(`Not connected to relay: ${url}`, "error");
+            }
+        }
+
+        // Fetch data from the active relay
+        function fetchDataFromActiveRelay() {
+            const relay = game.surfingRelays.get(game.activeRelay);
+            if (!relay) return;
+            
+            // Get recent notes from this relay
+            const since = Math.floor(Date.now() / 1000) - 3600; // Last hour
+            const filters = [{ kinds: [CONFIG.EVENT_KINDS.TEXT_NOTE], since }];
+            
+            nostrClient.subscribeToEvents(relay, filters, (event) => {
+                // Process the note (in a real implementation, we might spawn NPCs or items)
+                debug.log(`Received note from relay: ${event.id.substring(0, 8)}`);
+            });
+        }
+
+        // Subscribe to game events
+        function subscribeToGameEvents() {
+            // Player positions
+            nostrClient.subscribeToEvents(game.gameRelay, [{ kinds: [CONFIG.EVENT_KINDS.PLAYER_POSITION] }], (event) => {
+                handlePlayerPositionEvent(event);
+            });
+            
+            // Global chat
+            nostrClient.subscribeToEvents(game.gameRelay, [{ kinds: [CONFIG.EVENT_KINDS.GLOBAL_CHAT] }], (event) => {
+                handleChatEvent(event);
+            });
+            
+            // Direct messages
+            nostrClient.subscribeToEvents(game.gameRelay, [{ 
+                kinds: [CONFIG.EVENT_KINDS.DIRECT_CHAT], 
+                '#p': [game.player.pubkey] 
+            }], (event) => {
+                handleDirectMessageEvent(event);
+            });
+            
+            // Game actions (trades, etc.)
+            nostrClient.subscribeToEvents(game.gameRelay, [{ 
+                kinds: [CONFIG.EVENT_KINDS.GAME_ACTION],
+                '#p': [game.player.pubkey]
+            }], (event) => {
+                handleGameActionEvent(event);
+            });
+            
+            // Game quests
+            nostrClient.subscribeToEvents(game.gameRelay, [{ kinds: [CONFIG.EVENT_KINDS.GAME_QUEST] }], (event) => {
+                handleQuestEvent(event);
+            });
+            
+            // Game scores for leaderboard
+            nostrClient.subscribeToEvents(game.gameRelay, [{ kinds: [CONFIG.EVENT_KINDS.GAME_SCORE] }], (event) => {
+                handleScoreEvent(event);
+            });
+            
+            // Profile metadata
+            nostrClient.subscribeToEvents(game.gameRelay, [{ kinds: [CONFIG.EVENT_KINDS.METADATA] }], (event) => {
+                handleMetadataEvent(event);
+            });
+        }
+
+        // Event Handlers
+        function handlePlayerPositionEvent(event) {
+            try {
+                // Skip our own events
+                if (event.pubkey === game.player.pubkey) return;
+                
+                const position = JSON.parse(event.content);
+                
+                // Add or update player
+                if (!game.players.has(event.pubkey)) {
+                    game.players.set(event.pubkey, {
+                        pubkey: event.pubkey,
+                        x: position.x,
+                        y: position.y,
+                        profile: null,
+                        lastUpdate: event.created_at
+                    });
+                    
+                    // Try to fetch player profile
+                    fetchPlayerProfile(event.pubkey);
+                } else {
+                    const player = game.players.get(event.pubkey);
+                    
+                    // Only update if this is a newer event
+                    if (event.created_at > player.lastUpdate) {
+                        player.x = position.x;
+                        player.y = position.y;
+                        player.lastUpdate = event.created_at;
+                    }
+                }
+            } catch (error) {
+                debug.error(`Error handling position event: ${error.message}`);
+            }
+        }
+
+        function handleChatEvent(event) {
+            game.globalChat.push({
+                id: event.id,
+                pubkey: event.pubkey,
+                content: event.content,
+                created_at: event.created_at
+            });
+            
+            // Keep chat history limited
+            if (game.globalChat.length > 50) {
+                game.globalChat.shift();
+            }
+            
+            // Update chat UI
+            updateChatUI();
+        }
+
+        async function handleDirectMessageEvent(event) {
+            try {
+                // Make sure it's not our own message
+                if (event.pubkey === game.player.pubkey) return;
+                
+                // Decrypt the message
+                const decrypted = await nostrClient.decryptMessage(event.pubkey, event.content);
+                
+                // Add to direct chats
+                if (!game.directChats.has(event.pubkey)) {
+                    game.directChats.set(event.pubkey, []);
+                }
+                
+                game.directChats.get(event.pubkey).push({
+                    id: event.id,
+                    content: decrypted,
+                    fromMe: false,
+                    created_at: event.created_at
+                });
+                
+                // Update direct chat UI if the chat is open
+                if (game.selectedPlayer && game.selectedPlayer.pubkey === event.pubkey) {
+                    updateDirectChatUI();
+                } else {
+                    // Show a notification toast
+                    const playerName = getPlayerName(event.pubkey);
+                    showToast(`New message from ${playerName}`, "info");
+                }
+            } catch (error) {
+                debug.error(`Error handling direct message: ${error.message}`);
+            }
+        }
+
+        function handleGameActionEvent(event) {
+            try {
+                // Find the action tag
+                const actionTag = event.tags.find(tag => tag[0] === 'action');
+                if (!actionTag || !actionTag[1]) return;
+                
+                const action = actionTag[1];
+                const data = JSON.parse(event.content);
+                
+                switch (action) {
+                    case 'trade_offer':
+                        handleTradeOffer(event.pubkey, data);
+                        break;
+                    case 'trade_accept':
+                        handleTradeAccept(event.pubkey, data);
+                        break;
+                    case 'trade_reject':
+                        handleTradeReject(event.pubkey, data);
+                        break;
+                    case 'item_collect':
+                        handleItemCollect(event.pubkey, data);
+                        break;
+                    default:
+                        debug.log(`Unknown game action: ${action}`);
+                }
+            } catch (error) {
+                debug.error(`Error handling game action: ${error.message}`);
+            }
+        }
+
+        function handleQuestEvent(event) {
+            try {
+                const quest = JSON.parse(event.content);
+                
+                // Only show quest if we don't have one active
+                if (!game.currentQuest) {
+                    game.currentQuest = {
+                        id: event.id,
+                        title: quest.title,
+                        description: quest.description,
+                        reward: quest.reward,
+                        expires: quest.expires
+                    };
+                    
+                    // Show quest notification
+                    showQuestNotification();
+                }
+            } catch (error) {
+                debug.error(`Error handling quest event: ${error.message}`);
+            }
+        }
+
+        function handleScoreEvent(event) {
+            try {
+                // Skip our own events
+                if (event.pubkey === game.player.pubkey) return;
+                
+                const score = JSON.parse(event.content);
+                
+                // Update leaderboard entry
+                const existingIndex = game.leaderboard.findIndex(entry => entry.pubkey === event.pubkey);
+                
+                if (existingIndex !== -1) {
+                    game.leaderboard[existingIndex].score = score.score;
+                    game.leaderboard[existingIndex].level = score.level;
+                } else {
+                    game.leaderboard.push({
+                        pubkey: event.pubkey,
+                        score: score.score,
+                        level: score.level,
+                        profile: game.players.get(event.pubkey)?.profile || null
+                    });
+                    
+                    // Try to fetch player profile if not already available
+                    if (!game.players.has(event.pubkey) || !game.players.get(event.pubkey).profile) {
+                        fetchPlayerProfile(event.pubkey);
+                    }
+                }
+                
+                // Sort leaderboard
+                game.leaderboard.sort((a, b) => b.score - a.score);
+                
+                // Update leaderboard UI
+                updateLeaderboardUI();
+            } catch (error) {
+                debug.error(`Error handling score event: ${error.message}`);
+            }
+        }
+
+        function handleMetadataEvent(event) {
+            try {
+                const metadata = nostrClient.parseMetadata(event);
+                if (!metadata) return;
+                
+                if (event.pubkey === game.player.pubkey) {
+                    // Update our own profile
+                    game.player.profile = metadata;
+                    updatePlayerUI();
+                } else if (game.players.has(event.pubkey)) {
+                    // Update another player's profile
+                    const player = game.players.get(event.pubkey);
+                    player.profile = metadata;
+                    
+                    // Update UI if this is the selected player
+                    if (game.selectedPlayer && game.selectedPlayer.pubkey === event.pubkey) {
+                        updatePlayerPopup();
+                    }
+                }
+                
+                // Also update the leaderboard entry if exists
+                const leaderboardEntry = game.leaderboard.find(entry => entry.pubkey === event.pubkey);
+                if (leaderboardEntry) {
+                    leaderboardEntry.profile = metadata;
+                    updateLeaderboardUI();
+                }
+            } catch (error) {
+                debug.error(`Error handling metadata event: ${error.message}`);
+            }
+        }
+
+        // Fetch a player's profile
+        async function fetchPlayerProfile(pubkey) {
+            // Check if we already have the profile
+            const player = game.players.get(pubkey);
+            if (player && player.profile) return;
+            
+            // Try to fetch from relays
+            const relay = game.gameRelay;
+            const filters = [{ kinds: [CONFIG.EVENT_KINDS.METADATA], authors: [pubkey], limit: 1 }];
+            
+            nostrClient.subscribeToEvents(relay, filters, (event) => {
+                handleMetadataEvent(event);
+            }, () => {
+                // EOSE, no profile found
+                debug.log(`No profile found for ${pubkey}`);
+            });
+        }
+
+        // Game actions
+        function handleTradeOffer(senderPubkey, data) {
+            const { tradeId, offeredItems, requestedItems } = data;
+            
+            // Store trade offer
+            game.tradeOffers.set(tradeId, {
+                id: tradeId,
+                senderPubkey,
+                offeredItems,
+                requestedItems,
+                status: 'pending'
+            });
+            
+            // Show notification
+            const playerName = getPlayerName(senderPubkey);
+            showToast(`Trade offer from ${playerName}`, "info");
+            
+            // In a real implementation, we would show a trade notification UI
+        }
+
+        function handleTradeAccept(senderPubkey, data) {
+            const { tradeId } = data;
+            
+            if (game.tradeOffers.has(tradeId)) {
+                const trade = game.tradeOffers.get(tradeId);
+                
+                // Update trade status
+                trade.status = 'accepted';
+                
+                // Process the trade (add/remove items)
+                if (trade.senderPubkey === game.player.pubkey) {
+                    // We initiated the trade
+                    // Remove our offered items
+                    trade.offeredItems.forEach(itemId => {
+                        removeItemFromInventory(itemId);
+                    });
+                    
+                    // Add the items we received
+                    trade.requestedItems.forEach(itemId => {
+                        const itemTemplate = CONFIG.ITEMS.find(item => item.id === itemId);
+                        if (itemTemplate) {
+                            addItemToInventory({
+                                id: `${itemId}-${Date.now()}`,
+                                ...itemTemplate,
+                                rarity: getRandomRarity()
+                            });
+                        }
+                    });
+                } else {
+                    // They initiated the trade
+                    // Remove our offered items
+                    trade.requestedItems.forEach(itemId => {
+                        removeItemFromInventory(itemId);
+                    });
+                    
+                    // Add the items we received
+                    trade.offeredItems.forEach(itemId => {
+                        const itemTemplate = CONFIG.ITEMS.find(item => item.id === itemId);
+                        if (itemTemplate) {
+                            addItemToInventory({
+                                id: `${itemId}-${Date.now()}`,
+                                ...itemTemplate,
+                                rarity: getRandomRarity()
+                            });
+                        }
+                    });
+                }
+                
+                // Show notification
+                const playerName = getPlayerName(senderPubkey);
+                showToast(`Trade with ${playerName} completed!`, "success");
+                
+                // Update inventory UI if open
+                if (game.inventoryOpen) {
+                    updateInventoryUI();
+                }
+            }
+        }
+
+        function handleTradeReject(senderPubkey, data) {
+            const { tradeId } = data;
+            
+            if (game.tradeOffers.has(tradeId)) {
+                const trade = game.tradeOffers.get(tradeId);
+                
+                // Update trade status
+                trade.status = 'rejected';
+                
+                // Show notification
+                const playerName = getPlayerName(senderPubkey);
+                showToast(`${playerName} rejected your trade offer`, "warning");
+            }
+        }
+
+        function handleItemCollect(senderPubkey, data) {
+            const { itemId } = data;
+            
+            // Remove the item from the world
+            if (game.items.has(itemId)) {
+                game.items.delete(itemId);
+            }
+            
+            // If it was a player near us, show a notification
+            const player = game.players.get(senderPubkey);
+            if (player) {
+                const distance = Math.sqrt(
+                    Math.pow(player.x - game.player.x, 2) +
+                    Math.pow(player.y - game.player.y, 2)
+                );
+                
+                if (distance < 300) {
+                    const playerName = getPlayerName(senderPubkey);
+                    showToast(`${playerName} found an item!`, "info");
+                }
+            }
+        }
+
+        // Inventory functions
+        function addItemToInventory(item) {
+            game.player.inventory.push(item);
+            updatePlayerUI(); // Update item count
+        }
+
+        function removeItemFromInventory(itemId) {
+            const index = game.player.inventory.findIndex(item => item.id === itemId);
+            if (index !== -1) {
+                game.player.inventory.splice(index, 1);
+                updatePlayerUI(); // Update item count
+            }
+        }
+
+        // Generate random items in the world
+        function generateWorldItems() {
+            // Clear existing items
+            game.items.clear();
+            
+            // Generate some random items around the world
+            for (let i = 0; i < 50; i++) {
+                const x = Math.random() * CONFIG.WORLD_SIZE;
+                const y = Math.random() * CONFIG.WORLD_SIZE;
+                const itemTemplate = CONFIG.ITEMS[Math.floor(Math.random() * CONFIG.ITEMS.length)];
+                const rarity = getRandomRarity();
+                
+                const item = {
+                    id: `${itemTemplate.id}-${Date.now()}-${i}`,
+                    x, y,
+                    ...itemTemplate,
+                    rarity
+                };
+                
+                game.items.set(item.id, item);
+            }
+        }
+
+        // Get a random rarity based on chances
+        function getRandomRarity() {
+            const rand = Math.random();
+            let cumulative = 0;
+            
+            for (const rarity in CONFIG.RARITY) {
+                cumulative += CONFIG.RARITY[rarity].chance;
+                if (rand < cumulative) {
+                    return rarity;
+                }
+            }
+            
+            return "COMMON"; // Fallback
+        }
+
+        // Schedule the next quest
+        function scheduleNextQuest() {
+            setTimeout(() => {
+                generateQuest();
+                scheduleNextQuest();
+            }, CONFIG.QUEST_INTERVAL);
+        }
+
+        // Generate a random quest
+        function generateQuest() {
+            // Don't show a new quest if one is active
+            if (game.currentQuest) return;
+            
+            const questTypes = [
+                {
+                    title: "Item Hunt",
+                    description: "Find 5 items scattered around the world. Each item you collect will contribute to your score and reward.",
+                    reward: 100
+                },
+                {
+                    title: "Social Butterfly",
+                    description: "Chat with 3 different players in the next 10 minutes. Building connections is key to success!",
+                    reward: 150
+                },
+                {
+                    title: "Explorer",
+                    description: "Visit both social spaces (Corny Chat and Hive Talk) within the next 5 minutes.",
+                    reward: 200
+                }
+            ];
+            
+            // Select a random quest
+            const quest = questTypes[Math.floor(Math.random() * questTypes.length)];
+            
+            // Set expiration
+            quest.expires = Date.now() + 10 * 60 * 1000; // 10 minutes
+            
+            // Set as current quest
+            game.currentQuest = quest;
+            
+            // Show notification
+            showQuestNotification();
+        }
+
+        // Show the quest notification
+        function showQuestNotification() {
+            if (!game.currentQuest) return;
+            
+            const questTitle = document.getElementById('quest-title');
+            const questDescription = document.getElementById('quest-description');
+            
+            questTitle.textContent = game.currentQuest.title;
+            questDescription.textContent = `${game.currentQuest.description} Reward: ${game.currentQuest.reward} points.`;
+            
+            document.getElementById('quest-notification').style.display = 'block';
+        }
+
+        // Accept a quest
+        function acceptQuest() {
+            if (!game.currentQuest) return;
+            
+            showToast(`Quest accepted: ${game.currentQuest.title}`, "success");
+            document.getElementById('quest-notification').style.display = 'none';
+            
+            // In a real implementation, we would track quest progress
+        }
+
+        // Decline a quest
+        function declineQuest() {
+            if (!game.currentQuest) return;
+            
+            game.currentQuest = null;
+            document.getElementById('quest-notification').style.display = 'none';
+        }
+
+        // Update the leaderboard
+        function updateLeaderboard() {
+            // Add our own score if needed
+            const existingIndex = game.leaderboard.findIndex(entry => entry.pubkey === game.player.pubkey);
+            
+            if (existingIndex !== -1) {
+                game.leaderboard[existingIndex].score = game.player.score;
+                game.leaderboard[existingIndex].level = game.player.level;
+            } else {
+                game.leaderboard.push({
+                    pubkey: game.player.pubkey,
+                    score: game.player.score,
+                    level: game.player.level,
+                    profile: game.player.profile
+                });
+            }
+            
+            // Sort leaderboard
+            game.leaderboard.sort((a, b) => b.score - a.score);
+            
+            // Publish our score
+            const scoreEvent = nostrClient.createScoreEvent(game.player.score, game.player.level);
+            nostrClient.publishEvent(game.gameRelay, scoreEvent).catch(error => {
+                debug.error(`Failed to publish score: ${error.message}`);
+            });
+            
+            // Update UI
+            updateLeaderboardUI();
+        }
+
+        // ===============================
+        // Game Loop
+        // ===============================
+        function gameLoop(timestamp) {
+            if (!game.running) return;
+            
+            const deltaTime = (timestamp - game.lastFrameTime) / 1000;
+            game.lastFrameTime = timestamp;
+            
+            update(deltaTime);
+            render();
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Update game state
+        function update(deltaTime) {
+            // Update player movement
+            updatePlayerMovement(deltaTime);
+            
+            // Update camera
+            updateCamera();
+            
+            // Check for item collection
+            checkItemCollection();
+            
+            // Check for social space proximity
+            checkSocialSpaces();
+            
+            // Publish player position periodically
+            publishPlayerPosition();
+        }
+
+        // Update player movement based on input
+        function updatePlayerMovement(deltaTime) {
+            // Reset velocity
+            game.player.dx = 0;
+            game.player.dy = 0;
+            
+            // Apply input
+            if (game.keys.up) game.player.dy -= 1;
+            if (game.keys.down) game.player.dy += 1;
+            if (game.keys.left) game.player.dx -= 1;
+            if (game.keys.right) game.player.dx += 1;
+            
+            // Normalize diagonal movement
+            if (game.player.dx !== 0 && game.player.dy !== 0) {
+                const length = Math.sqrt(game.player.dx * game.player.dx + game.player.dy * game.player.dy);
+                game.player.dx /= length;
+                game.player.dy /= length;
+            }
+            
+            // Apply speed
+            game.player.dx *= CONFIG.PLAYER_SPEED * deltaTime;
+            game.player.dy *= CONFIG.PLAYER_SPEED * deltaTime;
+            
+            // Update position
+            game.player.x += game.player.dx;
+            game.player.y += game.player.dy;
+            
+            // Constrain to world bounds
+            game.player.x = Math.max(0, Math.min(game.player.x, CONFIG.WORLD_SIZE));
+            game.player.y = Math.max(0, Math.min(game.player.y, CONFIG.WORLD_SIZE));
+        }
+
+        // Update camera position to follow player
+        function updateCamera() {
+            // Target position (centered on player)
+            const targetX = game.player.x - game.camera.width / 2;
+            const targetY = game.player.y - game.camera.height / 2;
+            
+            // Smooth camera movement
+            game.camera.x += (targetX - game.camera.x) * CONFIG.CAMERA_FOLLOW_SPEED;
+            game.camera.y += (targetY - game.camera.y) * CONFIG.CAMERA_FOLLOW_SPEED;
+            
+            // Constrain to world bounds
+            game.camera.x = Math.max(0, Math.min(game.camera.x, CONFIG.WORLD_SIZE - game.camera.width));
+            game.camera.y = Math.max(0, Math.min(game.camera.y, CONFIG.WORLD_SIZE - game.camera.height));
+        }
+
+        // Check if player is collecting any items
+        function checkItemCollection() {
+            for (const [itemId, item] of game.items.entries()) {
+                const distance = Math.sqrt(
+                    Math.pow(item.x - game.player.x, 2) +
+                    Math.pow(item.y - game.player.y, 2)
+                );
+                
+                if (distance < 30) { // Collection radius
+                    // Add to inventory
+                    addItemToInventory({
+                        id: itemId,
+                        ...item
+                    });
+                    
+                    // Remove from world
+                    game.items.delete(itemId);
+                    
+                    // Update score
+                    game.player.score += item.value;
+                    updatePlayerUI();
+                    
+                    // Show toast
+                    showToast(`Found ${item.name}! +${item.value} points`, "success");
+                    
+                    // Publish collection event
+                    const actionEvent = nostrClient.createGameActionEvent('item_collect', { itemId });
+                    nostrClient.publishEvent(game.gameRelay, actionEvent).catch(error => {
+                        debug.error(`Failed to publish item collection: ${error.message}`);
+                    });
+                    
+                    break; // Only collect one item per frame
+                }
+            }
+        }
+
+        // Check if player is near a social space
+        function checkSocialSpaces() {
+            // Check Corny Chat
+            const distanceCorny = Math.sqrt(
+                Math.pow(CONFIG.SOCIAL_SPACES.CORNY_CHAT.x - game.player.x, 2) +
+                Math.pow(CONFIG.SOCIAL_SPACES.CORNY_CHAT.y - game.player.y, 2)
+            );
+            
+            if (distanceCorny < CONFIG.SOCIAL_SPACES.CORNY_CHAT.radius) {
+                if (document.getElementById('corny-chat').style.display !== 'block') {
+                    document.getElementById('corny-chat').style.display = 'block';
+                    showToast("Entered Corny Chat area", "info");
+                }
+            } else if (distanceCorny > CONFIG.SOCIAL_SPACES.CORNY_CHAT.radius * 1.5) {
+                if (document.getElementById('corny-chat').style.display === 'block') {
+                    document.getElementById('corny-chat').style.display = 'none';
+                }
+            }
+            
+            // Check Hive Talk
+            const distanceHive = Math.sqrt(
+                Math.pow(CONFIG.SOCIAL_SPACES.HIVE_TALK.x - game.player.x, 2) +
+                Math.pow(CONFIG.SOCIAL_SPACES.HIVE_TALK.y - game.player.y, 2)
+            );
+            
+            if (distanceHive < CONFIG.SOCIAL_SPACES.HIVE_TALK.radius) {
+                if (document.getElementById('hive-talk').style.display !== 'block') {
+                    document.getElementById('hive-talk').style.display = 'block';
+                    showToast("Entered Hive Talk area", "info");
+                }
+            } else if (distanceHive > CONFIG.SOCIAL_SPACES.HIVE_TALK.radius * 1.5) {
+                if (document.getElementById('hive-talk').style.display === 'block') {
+                    document.getElementById('hive-talk').style.display = 'none';
+                }
+            }
+        }
+
+        // Publish player position to relay
+        let lastPositionUpdate = 0;
+        function publishPlayerPosition() {
+            const now = Date.now();
+            
+            // Only update every 200ms to reduce relay traffic
+            if (now - lastPositionUpdate < 200) return;
+            
+            lastPositionUpdate = now;
+            
+            const positionEvent = nostrClient.createPositionEvent(game.player.x, game.player.y);
+            nostrClient.publishEvent(game.gameRelay, positionEvent).catch(error => {
+                debug.error(`Failed to publish position: ${error.message}`);
+            });
+        }
+
+        // Render the game
+        function render() {
+            const ctx = game.ctx;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, game.canvas.width, game.canvas.height);
+            
+            // Draw background (grid)
+            drawBackground();
+            
+            // Draw world bounds
+            drawWorldBounds();
+            
+            // Draw items
+            drawItems();
+            
+            // Draw social spaces
+            drawSocialSpaces();
+            
+            // Draw other players
+            drawPlayers();
+            
+            // Draw player
+            drawPlayer();
+        }
+
+        // Draw background grid
+        function drawBackground() {
+            const ctx = game.ctx;
+            const gridSize = 50;
+            
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            
+            // Calculate grid boundaries based on camera position
+            const startX = Math.floor(game.camera.x / gridSize) * gridSize;
+            const startY = Math.floor(game.camera.y / gridSize) * gridSize;
+            const endX = startX + game.camera.width + gridSize;
+            const endY = startY + game.camera.height + gridSize;
+            
+            // Draw vertical lines
+            for (let x = startX; x <= endX; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x - game.camera.x, 0);
+                ctx.lineTo(x - game.camera.x, game.canvas.height);
+                ctx.stroke();
+            }
+            
+            // Draw horizontal lines
+            for (let y = startY; y <= endY; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y - game.camera.y);
+                ctx.lineTo(game.canvas.width, y - game.camera.y);
+                ctx.stroke();
+            }
+        }
+
+        // Draw world boundaries
+        function drawWorldBounds() {
+            const ctx = game.ctx;
+            
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(
+                0 - game.camera.x,
+                0 - game.camera.y
